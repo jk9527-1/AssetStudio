@@ -1,0 +1,32 @@
+version: '{build}'
+image: Visual Studio 2022
+configuration: Release
+platform: x64
+
+init:
+
+git config --global core.autocrlf input
+install:
+
+choco install nuget.commandline -y
+build_script:
+
+nuget restore AssetStudio.sln
+msbuild AssetStudio.sln /p:Configuration=%configuration% /p:Platform=%platform% /m
+after_build:
+
+ps: |
+New-Item -ItemType Directory -Force -Path out | Out-Null
+$paths = @(
+"AssetStudioGUI/bin/Release/x64",
+"AssetStudioCLI/bin/Release/x64",
+"AssetStudioModTool/bin/Release/x64"
+)
+foreach($p in $paths){ if(Test-Path $p){ Copy-Item $p -Destination "out/$(Split-Path $p -Leaf)" -Recurse -Force } }
+Compress-Archive -Path out/* -DestinationPath AssetStudio_Windows_x64.zip
+artifacts:
+
+path: AssetStudio_Windows_x64.zip
+name: AssetStudio_Windows_x64
+path: out**
+name: out_tree
