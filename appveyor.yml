@@ -1,18 +1,25 @@
 version: '{build}'
 image: Visual Studio 2022
-configuration: Release
-platform: x64
+
+environment:
+DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 init:
 
 git config --global core.autocrlf input
 install:
 
-choco install nuget.commandline -y
+ps: |
+$ErrorActionPreference = "Stop"
+Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
+.\dotnet-install.ps1 -Channel 8.0 -Quality ga
+$env:PATH = "$env:USERPROFILE.dotnet;$env:USERPROFILE.dotnet\tools;$env:PATH"
+dotnet --info
 build_script:
 
-nuget restore AssetStudio.sln
-msbuild AssetStudio.sln /p:Configuration=%configuration% /p:Platform=%platform% /m
+'%USERPROFILE%.dotnet\dotnet.exe restore AssetStudio.sln'
+'%USERPROFILE%.dotnet\dotnet.exe build AssetStudio.sln -c Release -p:Platform=x64 --no-restore'
 after_build:
 
 ps: |
@@ -22,8 +29,15 @@ $paths = @(
 "AssetStudioCLI/bin/Release/x64",
 "AssetStudioModTool/bin/Release/x64"
 )
-foreach($p in $paths){ if(Test-Path $p){ Copy-Item $p -Destination "out/$(Split-Path $p -Leaf)" -Recurse -Force } }
-Compress-Archive -Path out/* -DestinationPath AssetStudio_Windows_x64.zip
+foreach($p in $paths){
+if(Test-Path $p){
+$leaf = Split-Path $p -Leaf
+Copy-Item $p -Destination "out/$leaf" -Recurse -Force
+}
+}
+if (Test-Path out) {
+Compress-Archive -Path out/* -DestinationPath AssetStudio_Windows_x64.zip -Force
+}
 artifacts:
 
 path: AssetStudio_Windows_x64.zip
